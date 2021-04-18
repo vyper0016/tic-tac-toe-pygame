@@ -1,6 +1,8 @@
 import pygame
 import os
 import sys
+import random
+from math import inf
 pygame.font.init()
 
 
@@ -67,10 +69,23 @@ class Board():
                 if j == -1:
                     s += 1
         return s
+
+    def game_over(self):
+        return self.count_empty == 0 or self.check_win() != -1
+
+    def empty_cases(self):
+        em = []
+        for row, i in enumerate(self.array):
+            for col, c in enumerate(i):
+                if c == -1:
+                    em.append((row, col))
+        
+        return em
     
-    def fill(self, coordinates: tuple, turn: int):  # turn: 0/1
+    def make_move(self, coordinates: tuple, turn: int):  # turn: 0/1
         if self.array[coordinates[0]][coordinates[1]] == -1:
             self.array[coordinates[0]][coordinates[1]] = turn
+            return self
         else:
             raise IndexError('Case already full')
     
@@ -116,6 +131,55 @@ class GameBoard(Board):
             raise IndexError('Case already full')
 
 
+class RandomPlayer():
+    def __init__(self) -> None:
+        pass
+
+    def play(self, board):
+        return random.choice(board.empty_cases())
+
+
+class AiPlayer():
+    def __init__(self, turn) -> None:
+        self.turn = turn
+
+    def play(self, board):
+        pass
+
+    def minimax(self, state: Board, maximizingPlayer):
+        if state.game_over():
+            return static_evaluation(state)
+        
+        if maximizingPlayer:
+            maxEval = -inf
+            for child in state.empty_cases():
+                new_state = state.make_move(child, self.turn)
+                eval = self.minimax(new_state, False)
+                maxEval = max(maxEval, eval)
+            return maxEval
+        else:
+            minEval = inf
+            for child in state.empty_cases():
+                new_state = state.make_move(child, 1-self.turn)
+                eval = self.minimax(new_state, True)
+                minEval = min(minEval, eval)
+            return minEval
+
+
+def static_evaluation(board: Board):
+    if not board.game_over():
+        raise ValueError('Game not over')
+    
+    if board.check_win() == 0:
+        a = -1
+    elif board.check_win() == -1:
+        return 0
+    elif board.check_win() == 1:
+        a = 1
+    
+    return a*(board.count_empty() + 1)
+
+
 bw = 2
 borders = [pygame.Rect(WIDTH//3-bw, 0, bw, HEIGHT), pygame.Rect(WIDTH*2//3, 0, bw, HEIGHT),
              pygame.Rect(0, HEIGHT//3-bw, WIDTH, bw), pygame.Rect(0, HEIGHT*2//3, WIDTH, bw)]
@@ -140,8 +204,6 @@ def handle_click(mx, my, click, board, turn):
                     board.fill((row, col), turn)
                     return True
                 except IndexError:
-                    print(row, col)
-                    print('exception')
                     return False
     return False
 
@@ -153,24 +215,30 @@ def draw_result(result):
         text = 'O Wins'
     else:
         text = 'Tie'
+
+    pygame.display.set_caption(text)
     
     draw_text = win_font.render(text, 1, (0, 0, 0))
     win.blit(draw_text, (WIDTH//2 - draw_text.get_width()//2, HEIGHT//2 - draw_text.get_height()//2))
     pygame.display.update()
     pygame.time.delay(5000)
-    main()
+    main_menu()
 
 
-turn_img_size = (50, round(50*300/500))
-turn_x_img = pygame.transform.scale(pygame.image.load(resource_path(os.path.join('assets', 'turn_x.jpg'))), turn_img_size)
-turn_o_img = pygame.transform.scale(pygame.image.load(resource_path(os.path.join('assets', 'turn_o.jpg'))), turn_img_size)
 def draw_turn(turn):
-    img = turn_x_img if turn == 1 else turn_o_img
-    win.blit(img, (10, 10))
-    pygame.display.update()
+    text = 'X\'s turn' if turn == 1 else 'O\'s turn'
+    pygame.display.set_caption(text)
     
 
-def main():
+def main():  
+    global p2, ai_p, random_p  
+    pygame.display.set_caption('boobs')
+
+    if random_p:
+        player = RandomPlayer()
+    elif ai_p:
+        player = AiPlayer()
+
 
     clock = pygame.time.Clock()
     win.fill((255, 255, 255))
@@ -178,8 +246,10 @@ def main():
 
     board = GameBoard()
 
-    turn = 1
+    turn = random.randint(0, 1)
     click = False
+
+    draw_turn(turn)
 
     run = True
     while run:
@@ -201,14 +271,25 @@ def main():
         change = handle_click(mx, my, click, board, turn)
         if change:
             k = board.check_win()
-            print(board.count_empty())
             if k in [0, 1]:
                 draw_result(k)
-            elif board.count_empty() == 0:
+            elif board.game_over():
                 draw_result(-1)
-
+            
             turn = 1 - turn
             draw_turn(turn)
+        
+            if random_p or ai_p:
+                board.fill(player.play(board), turn)
+
+                k = board.check_win()
+                if k in [0, 1]:
+                    draw_result(k)
+                elif board.game_over():
+                    draw_result(-1)
+                
+                turn = 1 - turn
+                draw_turn(turn)
 
 
 def draw_menu(buttons, mx, my, click, enter):
@@ -239,16 +320,41 @@ def draw_menu(buttons, mx, my, click, enter):
     return True
 
 
+random_p = False
+ai_p = False
+p2 = False
+def random_player():
+    global random_p
+    random_p = True
+    main()
+
+def ai_player():
+    global ai_p
+    ai_p = False
+    main()
+ 
+def p2_player():
+    global p2
+    p2 = True
+    main()
+
+
 button_size = (200, 50)
-button_spacing = 40
+button_spacing = 20
+button_y_init = 100
 current = -1
 def main_menu():
-    global current
+    global current, random_p, ai_p, p2
+    random_p = False
+    ai_p = False
+    p2 = False
     current = -1
     clock = pygame.time.Clock()
 
-    buttons = [Button(WIDTH//2-button_size[0]//2, HEIGHT//2-button_size[1]//2-button_spacing//2, button_size[0], button_size[1], 'Play', main),
-     Button(WIDTH//2-button_size[0]//2, HEIGHT//2+button_spacing//2, button_size[0], button_size[1], 'Exit', pygame.quit)]
+    buttons = [Button(WIDTH//2-button_size[0]//2, button_y_init, button_size[0], button_size[1], 'P1 vs P2', p2_player),
+     Button(WIDTH//2-button_size[0]//2, button_y_init+button_size[1]+button_spacing, button_size[0], button_size[1], 'P1 vs COM', random_player),
+     Button(WIDTH//2-button_size[0]//2, button_y_init+(button_size[1]+button_spacing)*2, button_size[0], button_size[1], 'P1 vs AI', ai_player),
+     Button(WIDTH//2-button_size[0]//2, button_y_init+(button_size[1]+button_spacing)*3, button_size[0], button_size[1], 'Exit', pygame.quit)]
     run = True
 
     while run:
