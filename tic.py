@@ -3,6 +3,7 @@ import os
 import sys
 import random
 from math import inf
+import numpy as np
 pygame.font.init()
 
 
@@ -59,7 +60,7 @@ class Case():
 
 
 class Board():
-    def __init__(self, a=[[-1, -1, -1], [-1, -1, -1], [-1, -1, -1]]):
+    def __init__(self, a=np.array([[-1, -1, -1], [-1, -1, -1], [-1, -1, -1]])):
         self.array = a  # 0: O, 1: X, -1: Empty
 
     def count_empty(self):
@@ -71,7 +72,7 @@ class Board():
         return s
 
     def game_over(self):
-        return self.count_empty == 0 or self.check_win() != -1
+        return self.count_empty() == 0 or self.check_win() != -1
 
     def empty_cases(self):
         em = []
@@ -84,11 +85,19 @@ class Board():
     
     def make_move(self, coordinates: tuple, turn: int):  # turn: 0/1
         if self.array[coordinates[0]][coordinates[1]] == -1:
-            self.array[coordinates[0]][coordinates[1]] = turn
-            return self
+            new_array = np.copy(self.array)
+            new_array[coordinates[0]][coordinates[1]] = turn
+            return new_array
         else:
+            print(self.array, '   ', coordinates)
             raise IndexError('Case already full')
     
+    def child_boards(self, turn):
+        children = []
+        for i in self.empty_cases():
+            children.append(Board(a=self.make_move(i, turn)))
+        return children
+
     def check_win(self):    # Returns -1: No winner/ 0: O wins/ 1: X wins
         
         for i in self.array:
@@ -107,6 +116,19 @@ class Board():
             return self.array[0][2]
         
         return -1
+
+    def __repr__(self):
+        for r in self.array:
+            s = ''
+            for c in r:
+                if c == 1:
+                    s+='X\t'
+                elif c == 0:
+                    s+='O\t'
+                else:
+                    s+=' \t'
+            print(s)
+        return ''
 
 
 class GameBoard(Board):
@@ -144,37 +166,53 @@ class AiPlayer():
         self.turn = turn
 
     def play(self, board):
-        pass
+        virtual_board = Board(a=board.array)
+        
+        return change_boards(self.minimax(virtual_board, 0, True), board)
 
-    def minimax(self, state: Board, maximizingPlayer):
+    def minimax(self, state: Board, depth, maximizingPlayer):
+
         if state.game_over():
-            return static_evaluation(state)
+            return static_evaluation(state, self.turn)
         
         if maximizingPlayer:
             maxEval = -inf
-            for child in state.empty_cases():
-                new_state = state.make_move(child, self.turn)
-                eval = self.minimax(new_state, False)
-                maxEval = max(maxEval, eval)
+            
+            for child in state.child_boards(self.turn): 
+                eval = self.minimax(child, depth+1, False)
+                if eval > maxEval:
+                    maxEval = eval
+                    bestMove = child
+            if depth == 0:
+                return bestMove
             return maxEval
+
         else:
             minEval = inf
-            for child in state.empty_cases():
-                new_state = state.make_move(child, 1-self.turn)
-                eval = self.minimax(new_state, True)
+
+            for child in state.child_boards(1-self.turn):                
+                eval = self.minimax(child, depth+1, True)
                 minEval = min(minEval, eval)
             return minEval
 
 
-def static_evaluation(board: Board):
+def change_boards(b1: Board, b2: Board):
+    for row, r in enumerate(b1.array):
+        for col, c in enumerate(b1.array):
+            if b1.array[row][col] != b2.array[row][col]:
+                return (row, col)
+    raise ValueError('No change found')
+
+
+def static_evaluation(board: Board, turn):
     if not board.game_over():
         raise ValueError('Game not over')
     
-    if board.check_win() == 0:
+    if board.check_win() == 1 - turn:
         a = -1
     elif board.check_win() == -1:
         return 0
-    elif board.check_win() == 1:
+    elif board.check_win() == turn:
         a = 1
     
     return a*(board.count_empty() + 1)
@@ -234,10 +272,12 @@ def main():
     global p2, ai_p, random_p  
     pygame.display.set_caption('boobs')
 
+    turn = random.randint(0, 1)
+
     if random_p:
         player = RandomPlayer()
     elif ai_p:
-        player = AiPlayer()
+        player = AiPlayer(1 - turn)
 
 
     clock = pygame.time.Clock()
@@ -246,7 +286,6 @@ def main():
 
     board = GameBoard()
 
-    turn = random.randint(0, 1)
     click = False
 
     draw_turn(turn)
@@ -330,7 +369,7 @@ def random_player():
 
 def ai_player():
     global ai_p
-    ai_p = False
+    ai_p = True
     main()
  
 def p2_player():
