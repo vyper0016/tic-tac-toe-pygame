@@ -168,9 +168,9 @@ class AiPlayer():
     def play(self, board):
         virtual_board = Board(a=board.array)
         
-        return change_boards(self.minimax(virtual_board, 0, True), board)
+        return change_boards(self.minimax(virtual_board, 0, -inf, inf, True), board)
 
-    def minimax(self, state: Board, depth, maximizingPlayer):
+    def minimax(self, state: Board, depth, alpha, beta, maximizingPlayer):
 
         if state.game_over():
             return static_evaluation(state, self.turn)
@@ -179,10 +179,13 @@ class AiPlayer():
             maxEval = -inf
             
             for child in state.child_boards(self.turn): 
-                eval = self.minimax(child, depth+1, False)
+                eval = self.minimax(child, depth+1, alpha, beta, False)
                 if eval > maxEval:
                     maxEval = eval
                     bestMove = child
+                alpha = max(alpha, eval)
+                if beta <= alpha:
+                    break
             if depth == 0:
                 return bestMove
             return maxEval
@@ -191,8 +194,11 @@ class AiPlayer():
             minEval = inf
 
             for child in state.child_boards(1-self.turn):                
-                eval = self.minimax(child, depth+1, True)
+                eval = self.minimax(child, depth+1, alpha, beta, True)
                 minEval = min(minEval, eval)
+                beta = min(beta, eval)
+                if beta <= alpha:
+                    break
             return minEval
 
 
@@ -252,7 +258,7 @@ def draw_result(result):
     elif result == 0:
         text = 'O Wins'
     else:
-        text = 'Tie'
+        text = 'yassine rbe7'
 
     pygame.display.set_caption(text)
     
