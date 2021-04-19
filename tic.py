@@ -9,7 +9,7 @@ pygame.font.init()
 
 WIDTH, HEIGHT = 500, 500
 win = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption('boobs')
+pygame.display.set_caption('tic tac toe')
 
 FPS = 60
 
@@ -395,6 +395,7 @@ def main_menu():
     p2 = False
     current = -1
     clock = pygame.time.Clock()
+    pygame.display.set_caption('tic tac toe')
 
     buttons = [Button(WIDTH//2-button_size[0]//2, button_y_init, button_size[0], button_size[1], 'P1 vs P2', p2_player),
      Button(WIDTH//2-button_size[0]//2, button_y_init+button_size[1]+button_spacing, button_size[0], button_size[1], 'P1 vs COM', random_player),
