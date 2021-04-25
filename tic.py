@@ -276,7 +276,7 @@ def draw_turn(turn):
 
 def main():  
     global p2, ai_p, random_p  
-    pygame.display.set_caption('boobs')
+    pygame.display.set_caption('tic tac toe')
 
     turn = random.randint(0, 1)
 
